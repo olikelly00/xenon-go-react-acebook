@@ -27,4 +27,6 @@ func OpenDatabaseConnection() {
 func AutoMigrateModels() {
 	Database.AutoMigrate(&User{})
 	Database.AutoMigrate(&Post{})
+	Database.AutoMigrate(&Comment{})
+
 }
