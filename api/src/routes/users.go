@@ -9,6 +9,8 @@ func setupUserRoutes(baseRouter *gin.RouterGroup) {
 	users := baseRouter.Group("/users")
 
 	users.POST("", controllers.CreateUser)
+
 	users.GET("/:user_id/posts/:post_id/comments", controllers.GetAllCommentsByPostId)
-	users.POST("/:user_id/posts/:post_id", controllers.CreateComment)
+	// users.POST("/:user_id/posts/:post_id", controllers.CreateComment)
+	users.GET("", controllers.GetUser)
 }
