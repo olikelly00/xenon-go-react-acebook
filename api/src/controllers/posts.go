@@ -20,7 +20,7 @@ type JSONPost struct {
 	FileSize  *int64  `json:"image_filesize,omitempty"`
 	FileType  *string `json:"image_filetype,omitempty"`
 	FileData  *[]byte `json:"image_filedata,omitempty"`
-  UserID    string `json:"user_id"`
+	UserID    string  `json:"user_id"`
 }
 
 func GetAllPosts(ctx *gin.Context) {
@@ -61,7 +61,7 @@ func GetAllPosts(ctx *gin.Context) {
 			ID:        post.ID,
 			CreatedAt: post.CreatedAt.Format(time.RFC3339),
 			Likes:     post.Likes,
-      UserID:    post.UserID,
+			UserID:    post.UserID,
 			Filename:  Filename,
 			FileSize:  FileSize,
 			FileType:  FileType,
@@ -147,7 +147,6 @@ func CreatePost(ctx *gin.Context) {
 	postTime := time.Now()
 	likeCount := 0
 	newPost := models.Post{
-    UserID:    userID.(string), // cast the user ID to a string
 		Message:   message,
 		CreatedAt: postTime,
 		Likes:     likeCount,
@@ -155,22 +154,6 @@ func CreatePost(ctx *gin.Context) {
 		FileSize:  &fileSize,
 		FileType:  &fileType,
 		FileData:  &fileData,
-
-	PostTime := time.Now()
-	// formattedTime := PostTime.Format("2006-01-02 15:04:05")
-	LikeCount := 0
-	// getting the user id from the gin context and passing an error
-	// if there is none
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"ERROR": "USER ID NOT FOUND IN CONTEXT"})
-		return
-	}
-	newPost := models.Post{
-		UserID:    userID.(string), // cast the user ID to a string
-		Message:   requestBody.Message,
-		CreatedAt: PostTime,
-		Likes:     LikeCount,
 	}
 
 	_, err = newPost.Save()
@@ -182,7 +165,6 @@ func CreatePost(ctx *gin.Context) {
 	// val, _ := ctx.Get("userID")
 	// userID := val.(string)
 	// token, _ := auth.GenerateToken(userID)
-
 
 	ctx.JSON(http.StatusCreated, gin.H{"message": "Post created"}) //sends confirmation message back if successfully saved
 }
