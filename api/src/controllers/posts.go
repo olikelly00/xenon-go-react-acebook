@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,6 +11,7 @@ import (
 )
 
 type JSONPost struct {
+
 	ID        uint    `json:"_id"` // Relates to the primary key ID for the posts table
 	Message   string  `json:"message"`
 	CreatedAt string  `json:"created_at"`
@@ -21,6 +21,7 @@ type JSONPost struct {
 	FileType  *string `json:"image_filetype,omitempty"`
 	FileData  *[]byte `json:"image_filedata,omitempty"`
 	UserID    string  `json:"user_id"`
+
 }
 
 func GetAllPosts(ctx *gin.Context) {
@@ -44,23 +45,17 @@ func GetAllPosts(ctx *gin.Context) {
 
 	var jsonPosts []JSONPost
 	for _, post := range *posts {
-		var Filename *string
-		var FileSize *int64
-		var FileType *string
-		var FileData *[]byte
-
-		if post.Filename != nil {
-			Filename = post.Filename
-			FileSize = post.FileSize
-			FileType = post.FileType
-			FileData = post.FileData
+		user, err := models.FindUser(post.UserID)
+		if err != nil {
+			SendInternalError(ctx, err)
 		}
 
-		jsonPost := JSONPost{
+		jsonPosts = append(jsonPosts, JSONPost{
 			Message:   post.Message,
 			ID:        post.ID,
 			CreatedAt: post.CreatedAt.Format(time.RFC3339),
 			Likes:     post.Likes,
+
 			UserID:    post.UserID,
 			Filename:  Filename,
 			FileSize:  FileSize,
@@ -68,7 +63,8 @@ func GetAllPosts(ctx *gin.Context) {
 			FileData:  FileData,
 		}
 
-		jsonPosts = append(jsonPosts, jsonPost)
+
+
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"posts": jsonPosts, "token": token})
@@ -88,55 +84,44 @@ func GetSpecificPost(ctx *gin.Context) {
 		return
 	}
 
+	user, err := models.FindUser(post.UserID)
+	if err != nil {
+		SendInternalError(ctx, err)
+		return
+	}
+
 	jsonPost := JSONPost{
 		Message:   post.Message,
 		ID:        post.ID,
 		CreatedAt: post.CreatedAt.Format(time.RFC3339),
 		Likes:     post.Likes,
-		Filename:  post.Filename,
-		FileSize:  post.FileSize,
-		FileType:  post.FileType,
-		FileData:  post.FileData,
-		UserID:    post.UserID,
+		User: JSONUser{
+			UserID:   user.ID,
+			Username: user.Username,
+		},
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"post": jsonPost})
 }
 
+type createPostRequestBody struct {
+	Message string
+}
+
 func CreatePost(ctx *gin.Context) {
-	err := ctx.Request.ParseMultipartForm(10 << 20) // 10 MB maximum file size
+	var requestBody createPostRequestBody
+
+	err := ctx.BindJSON(&requestBody)
+	// ctx.BindJSON reads the JSON payload from the request body (frontend/src/services/posts.js)
+	// it parses the JSON payload and attempts to match the JSON fields with the fields in the requestBody struct
+	// if the JSON payload has a field named "message" it assigns the corresponding value to the Message field of the requestBody
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": err})
 		return
 	}
 
-	message := ctx.Request.FormValue("message")
-	if message == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Post message empty"})
-		return
-	}
-
-	file, fileHeader, err := ctx.Request.FormFile("image")
-	//defer file.Close()
-	if err != nil {
-		postTime := time.Now()
-		likeCount := 0
-		newPost := models.Post{
-			Message:   message,
-			CreatedAt: postTime,
-			Likes:     likeCount,
-		}
-
-		_, err = newPost.Save()
-		if err != nil {
-			SendInternalError(ctx, err)
-			return
-		}
-	}
-
-	fileData, err := io.ReadAll(file)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+	if len(requestBody.Message) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Post message empty"})
 		return
 	}
 
@@ -154,6 +139,7 @@ func CreatePost(ctx *gin.Context) {
 		FileSize:  &fileSize,
 		FileType:  &fileType,
 		FileData:  &fileData,
+
 	}
 
 	_, err = newPost.Save()
@@ -162,11 +148,15 @@ func CreatePost(ctx *gin.Context) {
 		return
 	}
 
+
 	// val, _ := ctx.Get("userID")
 	// userID := val.(string)
 	// token, _ := auth.GenerateToken(userID)
 
 	ctx.JSON(http.StatusCreated, gin.H{"message": "Post created"}) //sends confirmation message back if successfully saved
+
+
+
 }
 
 // }
