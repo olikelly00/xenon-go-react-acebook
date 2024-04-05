@@ -135,10 +135,10 @@ func GetSpecificPost(ctx *gin.Context) {
 func CreatePost(ctx *gin.Context) {
 	// Create new post variable with the Post struct
 	newPost := models.Post{
-		Message:      ctx.PostForm("message"),
-		CreatedAt:    time.Now(), // formattedTime := PostTime.Format("2006-01-02 15:04:05")
-		Likes:        0,          // adds default of 0 likes to new post (may not be necessary?)
-		PostPhotoURL: "",         // sets image string to blank, which will be updated if an image is sent (also may not be necessary?)
+		Message:   ctx.PostForm("message"),
+		CreatedAt: time.Now(), // formattedTime := PostTime.Format("2006-01-02 15:04:05")
+		Likes:     0,          // adds default of 0 likes to new post (may not be necessary?)
+		// PostPhotoURL: "",         // sets image string to blank, which will be updated if an image is sent (also may not be necessary?)
 	}
 
 	if len(newPost.Message) == 0 {
@@ -161,20 +161,27 @@ func CreatePost(ctx *gin.Context) {
 	// Converted to a string to use with the FindUser function (in GetAllPosts)
 
 	// Extract file and fileHeader from 'uploaded' image
-	if ctx.PostForm("post_image") != "" {
-		file, fileHeader, err := ctx.Request.FormFile("post_image")
-		if err == nil {
-			postImage, err := UploadFileToHostingService(file, fileHeader)
-			if err != nil {
-				fmt.Println(err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
-			}
-			newPost.PostPhotoURL = postImage
+
+	// if ctx.Request.FormFile("post_image") != "" {}
+	file, fileHeader, err := ctx.Request.FormFile("post_image")
+	if err != nil {
+		if err == http.ErrMissingFile {
+			newPost.PostPhotoURL = ""
+		} else {
+			fmt.Println("Error retrieving file:", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve file"})
 		}
+	} else {
+		postImage, err := UploadFileToHostingService(file, fileHeader)
+		if err != nil {
+			fmt.Println(err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+		}
+		newPost.PostPhotoURL = postImage
 		defer file.Close()
 	}
 
-	_, err := newPost.Save()
+	_, err = newPost.Save()
 	if err != nil {
 		SendInternalError(ctx, err)
 		return
