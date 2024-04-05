@@ -84,11 +84,13 @@ export const FeedPage = () => {
           </div>
         </form>
         <div className="feed-all-posts" role="feed">
-          {posts.map((post) => (
-            <div className="feed-post" key={post._id}>
-              <Post post={post} token={token} onDelete={handleDelete} onLike={handleLike} user={post.User} />
-            </div>
-          ))}
+            {posts.map((post) => (
+                <div className="feed-post" key={post._id}>
+                    <Post post={post} token={token} onDelete={handleDelete} onLike={handleLike} user={post.User} />
+                    {post.post_image && <img src={post.post_image} alt="Post" />}
+                </div>
+            ))}
+
         </div>
           {errorMessage && <p className="error-message">{errorMessage}</p>}
       </div>

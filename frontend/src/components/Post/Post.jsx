@@ -72,10 +72,10 @@ return (
         <div className="post-user">
             <img className="user-image" src={user.image} alt="image" />
             <p>{user.username}</p>
-        </div>
-    <div>
-
     </div>
+        {post.post_image && (
+            <img className="post-image" src={post.post_image} alt="Post" />
+        )}
     <p>{post.message}</p>
     <p>Likes: {post.likes}</p>
     <button onClick={handleLikeClick}>Like</button>
