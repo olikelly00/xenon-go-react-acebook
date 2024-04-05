@@ -1,59 +1,18 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
-	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-resty/resty/v2"
 	"github.com/makersacademy/go-react-acebook-template/api/src/auth"
 	"github.com/makersacademy/go-react-acebook-template/api/src/models"
 )
 
-func uploadFileToHostingService(file multipart.File, fileHeader *multipart.FileHeader) (string, error) {
-	client := resty.New()
-	api_key := os.Getenv("IMGBB_API_KEY")
-	client.SetFormData(map[string]string{
-		"key": api_key,
-	})
-
-	// Open the file using the concrete type
-	// src, err := fileHeader.Open()
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed to open file: %v", err)
-	// }
-	// defer src.Close()
-
-	resp, err := client.R().
-		SetFileReader("image", fileHeader.Filename, file).
-		Post("https://api.imgbb.com/1/upload")
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode() != 200 {
-		return "", fmt.Errorf("failed to upload image: %s", resp.String())
-	}
-
-	var imgResponse struct {
-		Data struct {
-			URL string `json:"url"`
-		} `json:"data"`
-	}
-	err = json.Unmarshal(resp.Body(), &imgResponse)
-	if err != nil {
-		return "", err
-	}
-
-	return imgResponse.Data.URL, nil
-}
-
 func CreateUser(ctx *gin.Context) {
-	var newUser models.User // Creates a variable called newUser with the User struct type User{gorm.Model(id,...), email, password}
+	// var newUser models.User
+	// Creates a variable called newUser with the User struct type User{gorm.Model(id,...), email, password}
 	// err := ctx.ShouldBindJSON(&newUser) // Parses the JSON from the request and attempts to match the fields to the newUser fields
 
 	// ERROR HANDLING for ShouldBindJSON below
@@ -86,7 +45,7 @@ func CreateUser(ctx *gin.Context) {
 	// 	return
 	// }
 
-	newUser = models.User{
+	newUser := models.User{
 		// Update user fields with file information
 		Email:    ctx.PostForm("email"),
 		Password: ctx.PostForm("password"),
@@ -172,7 +131,7 @@ func CreateUser(ctx *gin.Context) {
 	defer file.Close()
 
 	// Upload the file to Imgbb
-	photoURL, err := uploadFileToHostingService(file, fileHeader)
+	photoURL, err := UploadFileToHostingService(file, fileHeader)
 	if err != nil {
 		fmt.Println(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})

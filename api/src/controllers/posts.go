@@ -12,11 +12,12 @@ import (
 )
 
 type JSONPost struct {
-	ID        uint   `json:"_id"` // Relates to the primary key ID for the posts table
-	Message   string `json:"message"`
-	CreatedAt string `json:"created_at"`
-	Likes     int    `json:"likes"`
-	User      JSONUser
+	ID           uint   `json:"_id"` // Relates to the primary key ID for the posts table
+	Message      string `json:"message"`
+	CreatedAt    string `json:"created_at"`
+	Likes        int    `json:"likes"`
+	PostPhotoURL string `json:"post_image"`
+	User         JSONUser
 }
 
 type JSONUser struct {
@@ -48,10 +49,11 @@ func GetAllPosts(ctx *gin.Context) {
 	for _, post := range *posts {
 		if post.UserID == "" {
 			jsonPosts = append(jsonPosts, JSONPost{
-				Message:   post.Message,
-				ID:        post.ID,
-				CreatedAt: post.CreatedAt.Format(time.RFC3339),
-				Likes:     post.Likes,
+				Message:      post.Message,
+				ID:           post.ID,
+				CreatedAt:    post.CreatedAt.Format(time.RFC3339),
+				Likes:        post.Likes,
+				PostPhotoURL: post.PostPhotoURL,
 			})
 		} else {
 			user, err := models.FindUser(post.UserID)
@@ -62,10 +64,11 @@ func GetAllPosts(ctx *gin.Context) {
 			}
 
 			jsonPosts = append(jsonPosts, JSONPost{
-				Message:   post.Message,
-				ID:        post.ID,
-				CreatedAt: post.CreatedAt.Format(time.RFC3339),
-				Likes:     post.Likes,
+				Message:      post.Message,
+				ID:           post.ID,
+				CreatedAt:    post.CreatedAt.Format(time.RFC3339),
+				Likes:        post.Likes,
+				PostPhotoURL: post.PostPhotoURL,
 				User: JSONUser{
 					UserID:   user.ID,
 					Username: user.Username,
@@ -125,30 +128,24 @@ func GetSpecificPost(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"post": jsonPost})
 }
 
-type createPostRequestBody struct {
-	Message string
-}
+// type createPostRequestBody struct {
+// 	Message string
+// }
 
 func CreatePost(ctx *gin.Context) {
-	var requestBody createPostRequestBody
-
-	err := ctx.BindJSON(&requestBody)
-	// ctx.BindJSON reads the JSON payload from the request body (frontend/src/services/posts.js)
-	// it parses the JSON payload and attempts to match the JSON fields with the fields in the requestBody struct
-	// if the JSON payload has a field named "message" it assigns the corresponding value to the Message field of the requestBody
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": err})
-		return
+	// Create new post variable with the Post struct
+	newPost := models.Post{
+		Message:      ctx.PostForm("message"),
+		CreatedAt:    time.Now(), // formattedTime := PostTime.Format("2006-01-02 15:04:05")
+		Likes:        0,          // adds default of 0 likes to new post (may not be necessary?)
+		PostPhotoURL: "",         // sets image string to blank, which will be updated if an image is sent (also may not be necessary?)
 	}
 
-	if len(requestBody.Message) == 0 {
+	if len(newPost.Message) == 0 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Post message empty"})
 		return
 	}
 
-	PostTime := time.Now()
-	// formattedTime := PostTime.Format("2006-01-02 15:04:05")
-	LikeCount := 0
 	// getting the user id from the gin context and passing an error
 	// if there is none
 	userIDToken, exists := ctx.Get("userID")
@@ -156,21 +153,47 @@ func CreatePost(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"ERROR": "USER ID NOT FOUND IN CONTEXT"})
 		return
 	}
+	userIDString := userIDToken.(string) //convert userid extracted from token to a string
+	newPost.UserID = strconv.Itoa(int([]byte(userIDString)[0]))
+	// userID extracted from token via ctx, as a string,
+	// This is actually represents a byte and therefore needs to be converted to a bytes slice
+	// We can then extract the first item and convert to a integer then a string
+	// Converted to a string to use with the FindUser function (in GetAllPosts)
 
-	userIDString := userIDToken.(string)
-
-	newPost := models.Post{
-		UserID:    strconv.Itoa(int([]byte(userIDString)[0])), //userID extracted from token via ctx, as a string, but actually represents a byte and therefore needs to be converted to a bytes slice where we extract the first item and convert to a integer then a string
-		Message:   requestBody.Message,
-		CreatedAt: PostTime,
-		Likes:     LikeCount,
+	// Extract file and fileHeader from 'uploaded' image
+	file, fileHeader, err := ctx.Request.FormFile("post_image")
+	if err == nil {
+		postImage, err := UploadFileToHostingService(file, fileHeader)
+		if err != nil {
+			fmt.Println(err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+		}
+		newPost.PostPhotoURL = postImage
 	}
+	defer file.Close()
 
 	_, err = newPost.Save()
 	if err != nil {
 		SendInternalError(ctx, err)
 		return
 	}
+
+	// * The following code relates to parsing a JSON request, before image functionality added and multipart/data-form required
+	// var requestBody createPostRequestBody
+
+	// err := ctx.BindJSON(&requestBody)
+	// // ctx.BindJSON reads the JSON payload from the request body (frontend/src/services/posts.js)
+	// // it parses the JSON payload and attempts to match the JSON fields with the fields in the requestBody struct
+	// // if the JSON payload has a field named "message" it assigns the corresponding value to the Message field of the requestBody
+	// if err != nil {
+	// 	ctx.JSON(http.StatusBadRequest, gin.H{"message": err})
+	// 	return
+	// }
+
+	// if len(requestBody.Message) == 0 {
+	// 	ctx.JSON(http.StatusBadRequest, gin.H{"message": "Post message empty"})
+	// 	return
+	// }
 
 	ctx.JSON(http.StatusCreated, gin.H{"message": "Post created", "userID": newPost.UserID}) //sends confirmation message back if successfully saved
 }
