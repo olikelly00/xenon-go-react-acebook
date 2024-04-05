@@ -161,18 +161,20 @@ func CreatePost(ctx *gin.Context) {
 	// Converted to a string to use with the FindUser function (in GetAllPosts)
 
 	// Extract file and fileHeader from 'uploaded' image
-	file, fileHeader, err := ctx.Request.FormFile("post_image")
-	if err == nil {
-		postImage, err := UploadFileToHostingService(file, fileHeader)
-		if err != nil {
-			fmt.Println(err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+	if ctx.PostForm("post_image") != "" {
+		file, fileHeader, err := ctx.Request.FormFile("post_image")
+		if err == nil {
+			postImage, err := UploadFileToHostingService(file, fileHeader)
+			if err != nil {
+				fmt.Println(err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+			}
+			newPost.PostPhotoURL = postImage
 		}
-		newPost.PostPhotoURL = postImage
+		defer file.Close()
 	}
-	defer file.Close()
 
-	_, err = newPost.Save()
+	_, err := newPost.Save()
 	if err != nil {
 		SendInternalError(ctx, err)
 		return
